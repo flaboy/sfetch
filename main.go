@@ -2,8 +2,10 @@ package main
 
 import (
 	"flag"
+	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -21,7 +23,7 @@ func main() {
 	}
 
 	s := &http.Server{
-		Addr:    ":" + string(*pFlag),
+		Addr:    ":" + strconv.Itoa(*pFlag),
 		Handler: Handler{},
 	}
 	log.Fatal(s.ListenAndServe())
@@ -88,5 +90,5 @@ func (h Handler) ServeHTTP(rsp http.ResponseWriter, req *http.Request) {
 	}
 	statusCode = r2.StatusCode
 	rsp.WriteHeader(r2.StatusCode)
-	r2.Write(rsp)
+	io.Copy(rsp, r2.Body)
 }
