@@ -1,10 +1,13 @@
 package main
 
 import (
+	"encoding/base64"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -65,20 +68,50 @@ func (h Handler) ServeHTTP(rsp http.ResponseWriter, req *http.Request) {
 		rsp.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	host := paths[1]
-	if host == "" {
-		rsp.WriteHeader(http.StatusBadRequest)
-		return
+
+	if paths[1] == "g" {
+		//解析querystring, 从querystring中获取url
+		urlBase64 := req.URL.Query().Get("u")
+		if urlBase64 == "" {
+			fmt.Println("urlBase64 is empty")
+			rsp.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		theUrl, err := base64.StdEncoding.DecodeString(urlBase64)
+		if err != nil {
+			fmt.Println("base64 decode error:", err, urlBase64)
+			rsp.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		u2, err := url.Parse(string(theUrl))
+		if err != nil {
+			fmt.Println("url parse error:", err, string(theUrl))
+			rsp.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		req.URL = u2
+		req.Host = u2.Host
+		req.RequestURI = ""
+	} else {
+		host := paths[1]
+		if host == "" {
+			rsp.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if !checkHost(host) {
+			rsp.WriteHeader(http.StatusForbidden)
+			return
+		}
+		req.URL.Scheme = "https"
+		req.URL.Host = host
+		req.URL.Path = "/" + strings.Join(paths[2:], "/")
+		req.Host = host
+		req.RequestURI = ""
 	}
-	if !checkHost(host) {
-		rsp.WriteHeader(http.StatusForbidden)
-		return
-	}
-	req.URL.Scheme = "https"
-	req.URL.Host = host
-	req.URL.Path = "/" + strings.Join(paths[2:], "/")
-	req.Host = host
-	req.RequestURI = ""
+
 	r2, err := httpClient.Do(req)
 	if err != nil {
 		rsp.WriteHeader(http.StatusInternalServerError)
