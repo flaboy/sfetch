@@ -5,5 +5,5 @@ run:
 	go run main.go
 
 push:
-	docker build . -t wanglei999/sfetch
+	docker buildx build --platform linux/amd64 . -t wanglei999/sfetch
 	docker push wanglei999/sfetch

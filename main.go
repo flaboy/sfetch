@@ -15,6 +15,7 @@ import (
 var pFlag = flag.Int("p", 6000, "Port listen")
 var hostFlag = flag.String("h", "*", "host allow. [,] split")
 var hostMap = map[string]bool{}
+var rspHeaderMap = map[string]bool{}
 
 func main() {
 	flag.Parse()
@@ -23,6 +24,18 @@ func main() {
 	log.Printf("host allow: %s\n", *hostFlag)
 	for _, host := range strings.Split(*hostFlag, ",") {
 		hostMap[host] = true
+	}
+
+	rspHeaderMap = map[string]bool{
+		"Content-Type":        true,
+		"Content-Length":      true,
+		"Content-Encoding":    true,
+		"Transfer-Encoding":   true,
+		"Content-Disposition": true,
+		"Date":                true,
+		"Expires":             true,
+		"Server":              true,
+		"Vary":                true,
 	}
 
 	s := &http.Server{
@@ -112,6 +125,19 @@ func (h Handler) ServeHTTP(rsp http.ResponseWriter, req *http.Request) {
 		req.RequestURI = ""
 	}
 
+	// proxyURL, err := url.Parse("http://127.0.0.1:49193")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// transport := &http.Transport{
+	// 	Proxy: http.ProxyURL(proxyURL),
+	// }
+
+	// httpClient = &http.Client{
+	// 	Transport: transport,
+	// }
+
 	r2, err := httpClient.Do(req)
 	if err != nil {
 		rsp.WriteHeader(http.StatusInternalServerError)
@@ -119,8 +145,11 @@ func (h Handler) ServeHTTP(rsp http.ResponseWriter, req *http.Request) {
 	}
 	defer r2.Body.Close()
 	for k, v := range r2.Header {
-		rsp.Header()[k] = v
+		if _, ok := rspHeaderMap[k]; ok {
+			rsp.Header()[k] = v
+		}
 	}
+
 	statusCode = r2.StatusCode
 	rsp.WriteHeader(r2.StatusCode)
 	io.Copy(rsp, r2.Body)
